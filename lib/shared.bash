@@ -151,7 +151,9 @@ function build_image_override_file_with_version() {
   shift
   while test ${#} -gt 0 ; do
     printf "  %s:\\n" "$1"
-    printf "    image: %s\\n" "$2"
+    if [[ -n "$2" ]] ; then
+      printf "    image: %s\\n" "$2"
+    fi
 
     if [[ -n "$3" ]] ; then
       if ! docker_compose_supports_cache_from "$version" ; then

@@ -61,6 +61,8 @@ done
 if [[ ${#build_images[@]} -gt 0 ]] ; then
   echo "~~~ :docker: Creating a modified docker-compose config"
   build_image_override_file "${build_images[@]}" | tee "$override_file"
+  echo "--- :docker: Resulting docker-compose config"
+  cat "$override_file"
 fi
 
 services=()

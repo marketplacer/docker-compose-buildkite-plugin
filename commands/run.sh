@@ -37,24 +37,43 @@ done <<< "$(plugin_read_list PULL)"
 prebuilt_service_overrides=()
 prebuilt_services=()
 
-# We look for a prebuilt images for all the pull services and the run_service.
+# We look for a prebuilt images and cache_from parameter for all the pull services and the run_service.
 for service_name in "${prebuilt_candidates[@]}" ; do
   if prebuilt_image=$(get_prebuilt_image "$service_name") ; then
     echo "~~~ :docker: Found a pre-built image for $service_name"
-    prebuilt_service_overrides+=("$service_name" "$prebuilt_image" "")
-    prebuilt_services+=("$service_name")
 
     # If it's prebuilt, we need to pull it down
     if [[ -z "${pull_services:-}" ]] || ! in_array "$service_name" "${pull_services[@]}" ; then
       pull_services+=("$service_name")
    fi
   fi
+
+  service_cache_from=""
+  for line in $(plugin_read_list CACHE_FROM) ; do
+    IFS=':' read -r -a tokens <<< "$line"
+    cache_service_name=${tokens[0]}
+    if [[ "${cache_service_name}" == "${service_name}" ]]; then
+      echo "~~~ :docker: Found a cache for $service_name"
+      service_cache_from=$(IFS=':'; echo "${tokens[*]:1}")
+      if ! retry "$pull_retries" plugin_prompt_and_run docker pull "$service_cache_from" ; then
+        echo "!!! :docker: Pull failed. $service_cache_from will not be used as a cache for $service_name"
+      fi
+    fi
+  done
+
+  if [[ -n $prebuilt_image ]] || [[ -n $service_cache_from ]]; then
+    prebuilt_service_overrides+=("$service_name" "$prebuilt_image" "$service_cache_from")
+    prebuilt_services+=("$service_name")
+  fi
+
 done
 
 # If there are any prebuilts, we need to generate an override docker-compose file
 if [[ ${#prebuilt_services[@]} -gt 0 ]] ; then
   echo "~~~ :docker: Creating docker-compose override file for prebuilt services"
   build_image_override_file "${prebuilt_service_overrides[@]}" | tee "$override_file"
+  echo "--- :docker: Resulting docker-compose config"
+  cat "$override_file"
   run_params+=(-f "$override_file")
   pull_params+=(-f "$override_file")
   up_params+=(-f "$override_file")
