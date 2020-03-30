@@ -74,6 +74,11 @@ done <<< "$(plugin_read_list BUILD)"
 
 build_params=(--pull)
 
+# Optionally don't remove containers after run
+if [[ "$(plugin_read_config RM "true")" == "false" ]]; then
+  build_params+=(--no-rm)
+fi
+
 if [[ "$(plugin_read_config NO_CACHE "false")" == "true" ]] ; then
   build_params+=(--no-cache)
 fi
